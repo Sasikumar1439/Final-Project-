@@ -9,7 +9,7 @@ st.set_page_config(page_title="Real-Time Brand Guardian", layout="wide")
 # --- STEP 1: LOAD DATA WITH AGGRESSIVE MAPPING ---
 @st.cache_data
 def load_and_map():
-    filename = 'fully_cleaned_dashboard_data.csv'  # CSV (not xls)
+    filename = 'fully_cleaned_social_media_data.csv'  # CSV 
 
     if not os.path.exists(filename):
         st.error(f"❌ File '{filename}' not found.")
@@ -123,3 +123,4 @@ if df_full is not None:
 
     else:
         st.info("System Ready. Click **Start Live Stream** to begin.")
+
