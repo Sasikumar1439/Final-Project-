@@ -1,126 +1,191 @@
 import streamlit as st
+import joblib
 import pandas as pd
 import plotly.express as px
-import time
 import os
 
-st.set_page_config(page_title="Real-Time Brand Guardian", layout="wide")
+# --- 1. Page Configuration ---
+st.set_page_config(page_title="Brand PR Risk Monitor", page_icon="🛡️", layout="wide")
 
-# --- STEP 1: LOAD DATA WITH AGGRESSIVE MAPPING ---
-@st.cache_data
-def load_and_map():
-    filename = 'fully_cleaned_social_media_data.csv'  # CSV 
+# --- 2. Load the SVM Model & Vectorizer ---
+import streamlit as st
+import joblib
+import os
 
-    if not os.path.exists(filename):
-        st.error(f"❌ File '{filename}' not found.")
-        return None, None
+# Get the folder where app.py is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-    df = pd.read_csv(filename)
+@st.cache_resource
+def load_model():
+    # Join the folder path with the filenames
+    model_path = os.path.join(BASE_DIR, 'sentiment_model.pkl')
+    tfidf_path = os.path.join(BASE_DIR, 'tfidf_vectorizer.pkl')
+    
+    # Error handling if files are still missing
+    if not os.path.exists(model_path):
+        st.error(f"❌ File not found: {model_path}. Please run train_model.py first!")
+        st.stop()
+        
+    model = joblib.load(model_path)
+    tfidf = joblib.load(tfidf_path)
+    return model, tfidf
 
-    mapping = {}
+model, tfidf = load_model()
 
-    for original_col in df.columns:
-        col = original_col.lower().strip()
+# --- 3. Sidebar Status ---
+st.sidebar.title("System Status")
+st.sidebar.success("SVM Model: Active (83% Acc)")
+st.sidebar.info("Monitoring for High-Risk Negative Sentiment spikes across social platforms.")
 
-        if 'sentiment' in col and 'conf' not in col and 'gold' not in col:
-            mapping['sent'] = original_col
+# --- 4. Main Dashboard Header ---
+st.title("🛡️ Real-Time Brand Monitoring & PR Risk Dashboard")
+st.markdown("---")
 
-        if 'clean_text' in col or ('text' in col and 'coord' not in col) or 'tweet' in col:
-            if 'sent' not in col:
-                mapping['text'] = original_col
+# --- 5. Real-Time Prediction (The "Risk Detector") ---
+st.subheader("🔍 Analyze Live Mention")
+col1, col2 = st.columns([2, 1])
 
-        if 'airline' in col or 'brand' in col or 'entity' in col:
-            if 'sent' not in col:
-                mapping['brand'] = original_col
+with col1:
+    user_input = st.text_area("Paste Tweet or News Snippet:", placeholder="Example: The service is terrible and I want a refund!")
+    
+with col2:
+    if st.button("Assess PR Risk", type="primary"):
+        if user_input and model:
+            # Transform text and predict
+            prediction = model.predict(tfidf.transform([user_input]))[0]
+            
+            if prediction == 'Negative':
+                st.error(f"🚨 ALERT: HIGH PR RISK ({prediction})")
+                st.write("**Action:** Immediate response recommended.")
+            elif prediction == 'Positive':
+                st.success(f"✅ RISK LEVEL: NONE ({prediction})")
+                st.write("**Action:** Brand Advocate detected. Consider engaging.")
+            else:
+                st.info(f"⚖️ RISK LEVEL: LOW ({prediction})")
+        else:
+            st.warning("Please enter text to analyze.")
 
-    # Fallbacks
-    mapping.setdefault('sent', df.columns[2])
-    mapping.setdefault('text', df.columns[10])
-    mapping.setdefault('brand', df.columns[5])
+# --- 6. Historical Brand Health (Analytics) ---
+st.markdown("---")
+st.subheader("📈 Historical Brand Analytics")
 
-    return df, mapping
+try:
+    df = pd.read_csv('final_cleaned_social_media_data.csv')
+    
+    tab1, tab2 = st.tabs(["Risk by Brand", "Global Sentiment"])
+    
+    with tab1:
+        # Show which brands are facing the most "Negative" mentions
+        neg_df = df[df['Sentiment'] == 'Negative']
+        risk_counts = neg_df['Entity'].value_counts().nlargest(10).reset_index()
+        risk_counts.columns = ['Brand', 'Negative Mentions']
+        
+        fig_bar = px.bar(risk_counts, x='Brand', y='Negative Mentions', 
+                         title="Top 10 Brands Under PR Risk",
+                         color='Negative Mentions', color_continuous_scale='Reds')
+        st.plotly_chart(fig_bar, use_container_width=True)
 
+    with tab2:
+        # Overall Sentiment Distribution
+        fig_pie = px.pie(df, names='Sentiment', title="Overall Market Sentiment",
+                        color='Sentiment',
+                        color_discrete_map={'Positive':'#00CC96', 'Negative':'#EF553B', 'Neutral':'#636EFA'})
+        st.plotly_chart(fig_pie, use_container_width=True)
 
-df_full, mapping = load_and_map()
+except Exception as e:
+    st.warning("Could not load historical charts. Ensure the CSV file is in the folder.")import streamlit as st
+import joblib
+import pandas as pd
+import plotly.express as px
+import os
 
-# --- STEP 2: DASHBOARD UI ---
-st.title("📈 Real-Time Brand Sentiment Monitor")
+# --- 1. Page Configuration ---
+st.set_page_config(page_title="Brand PR Risk Monitor", page_icon="🛡️", layout="wide")
 
-if df_full is not None:
+# --- 2. Load the SVM Model & Vectorizer ---
+import streamlit as st
+import joblib
+import os
 
-    with st.expander("🔍 View Detected Columns"):
-        st.write("Sentiment:", mapping['sent'])
-        st.write("Text:", mapping['text'])
-        st.write("Brand:", mapping['brand'])
+# Get the folder where app.py is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-    st.sidebar.header("Alert Settings")
-    threshold = st.sidebar.slider("Negative Alert Threshold (%)", 5, 50, 25)
+@st.cache_resource
+def load_model():
+    # Join the folder path with the filenames
+    model_path = os.path.join(BASE_DIR, 'sentiment_model.pkl')
+    tfidf_path = os.path.join(BASE_DIR, 'tfidf_vectorizer.pkl')
+    
+    # Error handling if files are still missing
+    if not os.path.exists(model_path):
+        st.error(f"❌ File not found: {model_path}. Please run train_model.py first!")
+        st.stop()
+        
+    model = joblib.load(model_path)
+    tfidf = joblib.load(tfidf_path)
+    return model, tfidf
 
-    # Placeholders (IMPORTANT)
-    alert_slot = st.empty()
-    metric_slot = st.empty()
-    col1, col2 = st.columns(2)
-    chart_slot = col1.empty()
-    trend_slot = col2.empty()
+model, tfidf = load_model()
 
-    if st.sidebar.button("▶️ Start Live Stream"):
+# --- 3. Sidebar Status ---
+st.sidebar.title("System Status")
+st.sidebar.success("SVM Model: Active (83% Acc)")
+st.sidebar.info("Monitoring for High-Risk Negative Sentiment spikes across social platforms.")
 
-        neg_history = []
+# --- 4. Main Dashboard Header ---
+st.title("🛡️ Real-Time Brand Monitoring & PR Risk Dashboard")
+st.markdown("---")
 
-        for i in range(50):
+# --- 5. Real-Time Prediction (The "Risk Detector") ---
+st.subheader("🔍 Analyze Live Mention")
+col1, col2 = st.columns([2, 1])
 
-            batch = df_full.sample(min(25, len(df_full)))
-            batch['sent_clean'] = batch[mapping['sent']].astype(str).str.lower().str.strip()
+with col1:
+    user_input = st.text_area("Paste Tweet or News Snippet:", placeholder="Example: The service is terrible and I want a refund!")
+    
+with col2:
+    if st.button("Assess PR Risk", type="primary"):
+        if user_input and model:
+            # Transform text and predict
+            prediction = model.predict(tfidf.transform([user_input]))[0]
+            
+            if prediction == 'Negative':
+                st.error(f"🚨 ALERT: HIGH PR RISK ({prediction})")
+                st.write("**Action:** Immediate response recommended.")
+            elif prediction == 'Positive':
+                st.success(f"✅ RISK LEVEL: NONE ({prediction})")
+                st.write("**Action:** Brand Advocate detected. Consider engaging.")
+            else:
+                st.info(f"⚖️ RISK LEVEL: LOW ({prediction})")
+        else:
+            st.warning("Please enter text to analyze.")
 
-            neg_pct = (batch['sent_clean'].eq('negative').mean()) * 100
-            neg_history.append(neg_pct)
-            if len(neg_history) > 20:
-                neg_history.pop(0)
+# --- 6. Historical Brand Health (Analytics) ---
+st.markdown("---")
+st.subheader("📈 Historical Brand Analytics")
 
-            # ALERTS
-            with alert_slot:
-                if neg_pct >= threshold:
-                    st.error(f"🚨 **PR RISK ALERT** — Negative sentiment at **{neg_pct:.1f}%**")
-                else:
-                    st.success(f"✅ Brand Stable — Negative sentiment at **{neg_pct:.1f}%**")
+try:
+    df = pd.read_csv('final_cleaned_social_media_data.csv')
+    
+    tab1, tab2 = st.tabs(["Risk by Brand", "Global Sentiment"])
+    
+    with tab1:
+        # Show which brands are facing the most "Negative" mentions
+        neg_df = df[df['Sentiment'] == 'Negative']
+        risk_counts = neg_df['Entity'].value_counts().nlargest(10).reset_index()
+        risk_counts.columns = ['Brand', 'Negative Mentions']
+        
+        fig_bar = px.bar(risk_counts, x='Brand', y='Negative Mentions', 
+                         title="Top 10 Brands Under PR Risk",
+                         color='Negative Mentions', color_continuous_scale='Reds')
+        st.plotly_chart(fig_bar, use_container_width=True)
 
-            # METRICS
-            with metric_slot:
-                m1, m2, m3 = st.columns(3)
-                m1.metric("Live Mentions", len(batch))
-                m2.metric("Negative %", f"{neg_pct:.1f}%")
-                m3.metric("Brand", batch[mapping['brand']].iloc[0])
+    with tab2:
+        # Overall Sentiment Distribution
+        fig_pie = px.pie(df, names='Sentiment', title="Overall Market Sentiment",
+                        color='Sentiment',
+                        color_discrete_map={'Positive':'#00CC96', 'Negative':'#EF553B', 'Neutral':'#636EFA'})
+        st.plotly_chart(fig_pie, use_container_width=True)
 
-            # BAR CHART (NO KEY)
-            with chart_slot:
-                fig_bar = px.bar(
-                    batch,
-                    x=mapping['brand'],
-                    color=mapping['sent'],
-                    barmode='group',
-                    title="Real-Time Sentiment Breakdown"
-                )
-                st.plotly_chart(fig_bar, use_container_width=True)
-
-            # TREND LINE (NO KEY)
-            with trend_slot:
-                trend_df = pd.DataFrame({
-                    "Update": range(len(neg_history)),
-                    "Negative %": neg_history
-                })
-
-                fig_line = px.line(
-                    trend_df,
-                    x="Update",
-                    y="Negative %",
-                    title="Negative Sentiment Trend"
-                )
-                fig_line.add_hline(y=threshold, line_dash="dash", line_color="red")
-
-                st.plotly_chart(fig_line, use_container_width=True)
-
-            time.sleep(3)
-
-    else:
-        st.info("System Ready. Click **Start Live Stream** to begin.")
-
+except Exception as e:
+    st.warning("Could not load historical charts. Ensure the CSV file is in the folder.")
