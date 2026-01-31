@@ -103,15 +103,16 @@ if df_full is not None:
                 fig_bar = px.bar(batch, x=mapping['brand'], color=mapping['sent'], 
                                  title="Real-Time Sentiment Breakdown", barmode='group',
                                  color_discrete_map={'negative':'#ff4b4b', 'neutral':'#f1c40f', 'positive':'#2ecc71'})
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_bar, use_container_width=True,key="bar_chart")
 
             # 4. Trend Line
             with trend_slot:
                 trend_df = pd.DataFrame({"Update": range(len(neg_history)), "Neg %": neg_history})
                 fig_line = px.line(trend_df, x="Update", y="Neg %", title="Sentiment Trend")
                 fig_line.add_hline(y=threshold, line_dash="dash", line_color="red")
-                st.plotly_chart(fig_line, use_container_width=True)
+                st.plotly_chart(fig_line, use_container_width=True,key="trend_chart")
 
             time.sleep(3)
     else:
         st.info("System Ready. Click 'Start Live Stream' to begin.")
+
