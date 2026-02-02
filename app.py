@@ -3,80 +3,100 @@ import joblib
 import pandas as pd
 import plotly.express as px
 import os
+from datetime import datetime
 
 # --- 1. Page Configuration ---
 st.set_page_config(page_title="Brand PR Risk Monitor", page_icon="🛡️", layout="wide")
 
-# --- 2. Load the SVM Model & Vectorizer ---
-import streamlit as st
-import joblib
-import os
-
-# Get the folder where app.py is located
+# --- 2. Path & Session Memory Initialization ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_FILE = os.path.join(BASE_DIR, 'final_cleaned_social_media_data.csv')
 
+if 'risk_history' not in st.session_state:
+    st.session_state['risk_history'] = []
+
+# --- 3. Load ML Assets ---
 @st.cache_resource
-def load_model():
-    # Join the folder path with the filenames
-    model_path = os.path.join(BASE_DIR, 'sentiment_model.pkl')
-    tfidf_path = os.path.join(BASE_DIR, 'tfidf_vectorizer.pkl')
-    
-    # Error handling if files are still missing
-    if not os.path.exists(model_path):
-        st.error(f"❌ File not found: {model_path}. Please run train_model.py first!")
-        st.stop()
-        
-    model = joblib.load(model_path)
-    tfidf = joblib.load(tfidf_path)
-    return model, tfidf
+def load_assets():
+    try:
+        model = joblib.load(os.path.join(BASE_DIR, 'sentiment_model.pkl'))
+        tfidf = joblib.load(os.path.join(BASE_DIR, 'tfidf_vectorizer.pkl'))
+        return model, tfidf
+    except Exception as e:
+        st.error(f"Error loading model files: {e}")
+        return None, None
 
-model, tfidf = load_model()
+model, tfidf = load_assets()
 
-# --- 3. Sidebar Status ---
-st.sidebar.title("System Status")
-st.sidebar.success("SVM Model: Active (83% Acc)")
-st.sidebar.info("Monitoring for High-Risk Negative Sentiment spikes across social platforms.")
+# --- 4. Sidebar Branding ---
+st.sidebar.title("🛡️ PR Risk System")
+st.sidebar.success("SVM Model: 83% Accuracy")
+st.sidebar.info("Monitoring brand mentions for immediate reputational threats.")
 
-# --- 4. Main Dashboard Header ---
-st.title("🛡️ Real-Time Brand Monitoring & PR Risk Dashboard")
+# --- 5. Main Header ---
+st.title("Real-Time Brand Monitoring & PR Risk Dashboard")
 st.markdown("---")
 
-# --- 5. Real-Time Prediction (The "Risk Detector") ---
+# --- 6. Live Risk Analysis (Interactivity) ---
 st.subheader("🔍 Analyze Live Mention")
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    user_input = st.text_area("Paste Tweet or News Snippet:", placeholder="Example: The service is terrible and I want a refund!")
+    user_input = st.text_area("Paste Tweet or News Snippet here:", height=100, placeholder="e.g., This new update is crashing my phone, terrible service!")
     
 with col2:
     if st.button("Assess PR Risk", type="primary"):
         if user_input and model:
-            # Transform text and predict
+            # Model Prediction
             prediction = model.predict(tfidf.transform([user_input]))[0]
+            timestamp = datetime.now().strftime("%H:%M:%S")
             
+            # Store in History
+            new_entry = {
+                "Time": timestamp,
+                "Content": user_input[:50] + "...",
+                "Sentiment": prediction,
+                "Action": "🚨 INVESTIGATE" if prediction == 'Negative' else "✅ LOGGED"
+            }
+            st.session_state['risk_history'].insert(0, new_entry)
+            
+            # Show Results
             if prediction == 'Negative':
                 st.error(f"🚨 ALERT: HIGH PR RISK ({prediction})")
-                st.write("**Action:** Immediate response recommended.")
             elif prediction == 'Positive':
-                st.success(f"✅ RISK LEVEL: NONE ({prediction})")
-                st.write("**Action:** Brand Advocate detected. Consider engaging.")
+                st.success(f"✅ POSITIVE SENTIMENT ({prediction})")
             else:
-                st.info(f"⚖️ RISK LEVEL: LOW ({prediction})")
+                st.info(f"⚖️ NEUTRAL SENTIMENT ({prediction})")
         else:
-            st.warning("Please enter text to analyze.")
+            st.warning("Please enter text and ensure model files are in the folder.")
 
-# --- 6. Historical Brand Health (Analytics) ---
+# --- 7. Risk Alert History Table ---
+with st.expander("📜 View Recent Scan History"):
+    if st.session_state['risk_history']:
+        history_df = pd.DataFrame(st.session_state['risk_history'])
+        st.table(history_df)
+        if st.button("Clear History"):
+            st.session_state['risk_history'] = []
+            st.rerun()
+    else:
+        st.write("No scans performed yet.")
+
+# --- 8. Historical Analytics (Visualizations) ---
 st.markdown("---")
 st.subheader("📈 Historical Brand Analytics")
 
 try:
-    df = pd.read_csv('final_cleaned_social_media_data.csv')
+    # Load the specific CSV mentioned
+    df_hist = pd.read_csv(CSV_FILE)
     
-    tab1, tab2 = st.tabs(["Risk by Brand", "Global Sentiment"])
+    # Ensure column names match your project structure
+    # Based on your notebook: ['TweetID', 'Entity', 'Sentiment', 'TweetContent']
+    
+    tab1, tab2 = st.tabs(["PR Risk Analysis", "Global Sentiment Distribution"])
     
     with tab1:
-        # Show which brands are facing the most "Negative" mentions
-        neg_df = df[df['Sentiment'] == 'Negative']
+        # Show which brands have the most "Negative" mentions
+        neg_df = df_hist[df_hist['Sentiment'] == 'Negative']
         risk_counts = neg_df['Entity'].value_counts().nlargest(10).reset_index()
         risk_counts.columns = ['Brand', 'Negative Mentions']
         
@@ -86,11 +106,11 @@ try:
         st.plotly_chart(fig_bar, use_container_width=True)
 
     with tab2:
-        # Overall Sentiment Distribution
-        fig_pie = px.pie(df, names='Sentiment', title="Overall Market Sentiment",
+        # Overall Sentiment Pie Chart
+        fig_pie = px.pie(df_hist, names='Sentiment', title="Overall Market Sentiment Ratio",
                         color='Sentiment',
                         color_discrete_map={'Positive':'#00CC96', 'Negative':'#EF553B', 'Neutral':'#636EFA'})
         st.plotly_chart(fig_pie, use_container_width=True)
 
 except Exception as e:
-    st.warning("Could not load historical charts. Ensure the CSV file is in the folder.")
+    st.error(f"Could not load charts. Error: {e}")
