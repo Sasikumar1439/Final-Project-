@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Brand Risk Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+
+<!-- ================= SIDEBAR ================= -->
+<div class="sidebar">
+    <h2>📊 Dashboard Info</h2>
+    <hr class="sidebar-line">
+    <p><b>Model:</b> Naive Bayes</p>
+    <p><b>Vectorizer:</b> TF-IDF</p>
+    <p><b>Purpose:</b> Brand Risk Detection</p>
+</div>
+
+
+<!-- ================= MAIN CONTENT ================= -->
+<div class="main">
+
+    <!-- ================= HEADER ================= -->
+    <div class="header-section">
+        <h1>Brand Reputation & Risk Monitoring Dashboard</h1>
+        <p class="subtitle">
+            Monitor brand mentions and detect PR risk instantly
+        </p>
+    </div>
+
+
+    <!-- ================= PREDICTION SECTION ================= -->
+    <div class="analysis-section">
+        <h2>🔍 Risk Prediction</h2>
+
+        <div class="input-group">
+            <input type="text" id="brandInput" placeholder="Enter Brand Name">
+            <input type="text" id="commentInput" placeholder="Enter Comment / Mention">
+        </div>
+
+        <button onclick="predictRisk()">Predict Risk</button>
+    </div>
+
+
+    <!-- ================= RISK RESULT ================= -->
+    <div id="riskResult"></div>
+
+
+    <!-- ================= SEPARATOR ================= -->
+    <hr class="section-divider">
+
+
+    <!-- ================= ANALYTICS SECTION ================= -->
+    <div class="analytics-section">
+        <h2>📈 Brand Analytics Dashboard</h2>
+
+        <div class="filter-section">
+            <label><b>Select Brand:</b></label>
+            <select id="brandSelect">
+                <option value="All">All</option>
+                {% for brand in brands %}
+                <option value="{{ brand }}">{{ brand }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- ================= CHARTS ================= -->
+        <div class="charts">
+            <div class="chart-box">
+                <canvas id="barChart"></canvas>
+            </div>
+
+            <div class="chart-box">
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ================= LOGOUT ================= -->
+    <div class="logout-section">
+        <a href="/logout" class="logout">Logout</a>
+    </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+</html>
