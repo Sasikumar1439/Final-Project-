@@ -1,99 +1,91 @@
-from flask import Flask, render_template, request, jsonify
-import pandas as pd
+import streamlit as st
 import joblib
+import pandas as pd
+import os
 
-app = Flask(__name__)
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(
+    page_title="Brand PR Risk Monitor",
+    page_icon="🛡️",
+    layout="wide"
+)
 
-# load sentiment model
+# ---------------- LOAD MODEL ----------------
 model = joblib.load("sentiment_model.pkl")
 tfidf = joblib.load("tfidf_vectorizer.pkl")
 
-users_file = "users.csv"
+# ---------------- HEADER ----------------
+st.title("🛡 Brand PR Risk Monitor")
+st.markdown("---")
 
-# ================= HOME =================
-@app.route("/")
-def home():
-    return render_template("signup.html")
+# ---------------- MAIN LAYOUT ----------------
+col1, col2 = st.columns([1,2])
 
-# ================= LOGIN PAGE =================
-@app.route("/loginpage")
-def loginpage():
-    return render_template("login.html")
+# -------- LEFT PANEL --------
+with col1:
 
-# ================= DASHBOARD =================
-@app.route("/dashboard")
-def dashboard():
-    return render_template("dashboard.html")
+    st.subheader("PR Risk System")
 
-# ================= SIGNUP =================
-@app.route("/signup", methods=["POST"])
-def signup():
+    st.info("SVM Model: **83% Accuracy**")
 
-    data = request.json
-    username = data["username"]
-    password = data["password"]
+    st.write(
+        "Monitoring brand mentions for immediate reputational threats."
+    )
 
-    users = pd.read_csv(users_file)
+# -------- RIGHT PANEL --------
+with col2:
 
-    if username in users["username"].values:
-        return jsonify({"status":"exists"})
+    st.subheader("🔍 Analyze Live Mention")
 
-    new_user = pd.DataFrame([[username,password]],columns=["username","password"])
-    users = pd.concat([users,new_user],ignore_index=True)
+    brand = st.text_input("Brand Name")
 
-    users.to_csv(users_file,index=False)
+    tweet = st.text_area(
+        "Paste Tweet or News Snippet"
+    )
 
-    return jsonify({"status":"success"})
+    brand_select = st.selectbox(
+        "Or select existing brand",
+        ["Choose an option","Apple","Nike","Tesla","Samsung"]
+    )
 
+    if st.button("🔎 Assess PR Risk"):
 
-# ================= LOGIN =================
-@app.route("/login", methods=["POST"])
-def login():
+        if tweet.strip()=="":
+            st.warning("Please enter text")
 
-    data = request.json
-    username = data["username"]
-    password = data["password"]
+        else:
 
-    users = pd.read_csv(users_file)
+            vect = tfidf.transform([tweet])
+            prediction = model.predict(vect)[0]
 
-    user = users[
-        (users["username"]==username) &
-        (users["password"]==password)
-    ]
+            st.markdown("---")
+            st.subheader("📊 Analysis Result")
 
-    if len(user)>0:
-        return jsonify({"status":"success"})
-    else:
-        return jsonify({"status":"fail"})
+            colA,colB,colC = st.columns(3)
 
+            with colA:
+                st.write("Brand")
+                st.header(brand if brand else brand_select)
 
-# ================= SENTIMENT =================
-@app.route("/predict", methods=["POST"])
-def predict():
+            with colB:
+                st.write("Sentiment")
+                st.header(prediction)
 
-    text = request.json["text"]
+            with colC:
 
-    vect = tfidf.transform([text])
-    prediction = model.predict(vect)[0]
+                if prediction=="Negative":
+                    action="INVESTIGATE"
+                elif prediction=="Neutral":
+                    action="WATCH"
+                else:
+                    action="MONITOR"
 
-    return jsonify({"sentiment":prediction})
+                st.write("Action")
+                st.header(action)
 
+            if prediction=="Negative":
 
-# ================= CHART DATA =================
-@app.route("/data")
-def data():
-
-    df = pd.read_csv("final_cleaned_social_media_data.csv")
-
-    sentiment_counts = df["Sentiment"].value_counts().to_dict()
-
-    risk_counts = df[df["Sentiment"]=="Negative"]["Entity"].value_counts().head(5).to_dict()
-
-    return jsonify({
-        "sentiment":sentiment_counts,
-        "risk":risk_counts
-    })
-
-
-if __name__ == "__main__":
-    app.run(debug=True)
+                st.error(
+                    f"🚨 ALERT: HIGH PR RISK detected for {brand} — Sentiment: {prediction}"
+                )
+                
