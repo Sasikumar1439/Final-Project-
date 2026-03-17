@@ -1,136 +1,99 @@
-from flask import Flask, render_template, request, redirect, session, jsonify
-import joblib
+from flask import Flask, render_template, request, jsonify
 import pandas as pd
+import joblib
 
 app = Flask(__name__)
-app.secret_key = "keerthi_secret"
 
-# ================= LOAD MODEL =================
+# load sentiment model
 model = joblib.load("sentiment_model.pkl")
 tfidf = joblib.load("tfidf_vectorizer.pkl")
 
-# ================= LOAD DATA =================
-data = pd.read_csv("final_cleaned_social_media_data.csv")
-data["Entity"] = data["Entity"].astype(str).str.strip()
-data["Sentiment"] = data["Sentiment"].astype(str).str.strip()
-
-# ================= LOAD USERS =================
-users_data = pd.read_csv("users.csv")
-
+users_file = "users.csv"
 
 # ================= HOME =================
 @app.route("/")
 def home():
-    return render_template("login.html")
+    return render_template("signup.html")
 
+# ================= LOGIN PAGE =================
+@app.route("/loginpage")
+def loginpage():
+    return render_template("login.html")
 
 # ================= DASHBOARD =================
 @app.route("/dashboard")
 def dashboard():
-    if "user" not in session:
-        return redirect("/")
+    return render_template("dashboard.html")
 
-    brands = sorted(data["Entity"].dropna().unique())
-    return render_template("dashboard.html", brands=brands)
+# ================= SIGNUP =================
+@app.route("/signup", methods=["POST"])
+def signup():
+
+    data = request.json
+    username = data["username"]
+    password = data["password"]
+
+    users = pd.read_csv(users_file)
+
+    if username in users["username"].values:
+        return jsonify({"status":"exists"})
+
+    new_user = pd.DataFrame([[username,password]],columns=["username","password"])
+    users = pd.concat([users,new_user],ignore_index=True)
+
+    users.to_csv(users_file,index=False)
+
+    return jsonify({"status":"success"})
 
 
 # ================= LOGIN =================
 @app.route("/login", methods=["POST"])
 def login():
-    username = request.form.get("username")
-    password = request.form.get("password")
 
-    user = users_data[
-        (users_data["username"] == username) &
-        (users_data["password"] == password)
+    data = request.json
+    username = data["username"]
+    password = data["password"]
+
+    users = pd.read_csv(users_file)
+
+    user = users[
+        (users["username"]==username) &
+        (users["password"]==password)
     ]
 
-    if not user.empty:
-        session["user"] = username
-        return redirect("/dashboard")
-
-    return render_template("login.html", error="Invalid Credentials")
-
-
-# ================= LOGOUT =================
-@app.route("/logout")
-def logout():
-    session.pop("user", None)
-    return redirect("/")
+    if len(user)>0:
+        return jsonify({"status":"success"})
+    else:
+        return jsonify({"status":"fail"})
 
 
-# ================= PREDICT =================
+# ================= SENTIMENT =================
 @app.route("/predict", methods=["POST"])
 def predict():
 
-    if "user" not in session:
-        return jsonify({"error": "Unauthorized"}), 401
+    text = request.json["text"]
 
-    try:
-        data_json = request.get_json()
+    vect = tfidf.transform([text])
+    prediction = model.predict(vect)[0]
 
-        if not data_json:
-            return jsonify({"error": "No input provided"}), 400
-
-        comment = data_json.get("comment", "").strip()
-        brand = data_json.get("brand", "").strip()
-
-        if not comment:
-            return jsonify({"error": "Comment cannot be empty"}), 400
-
-        vect = tfidf.transform([comment])
-        prediction = model.predict(vect)[0]
-
-        confidence = None
-        if hasattr(model, "predict_proba"):
-            probabilities = model.predict_proba(vect)[0]
-            confidence = round(max(probabilities) * 100, 2)
-
-        return jsonify({
-            "brand": brand,
-            "risk": prediction,
-            "confidence": confidence
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"sentiment":prediction})
 
 
-# ================= BRAND STATS =================
-@app.route("/brand_stats/<brand>")
-def brand_stats(brand):
+# ================= CHART DATA =================
+@app.route("/data")
+def data():
 
-    if "user" not in session:
-        return jsonify({"error": "Unauthorized"}), 401
+    df = pd.read_csv("final_cleaned_social_media_data.csv")
 
-    try:
-        brand = brand.strip()
+    sentiment_counts = df["Sentiment"].value_counts().to_dict()
 
-        if brand.lower() == "all":
-            filtered_df = data.copy()
-        else:
-            filtered_df = data[
-                data["Entity"].str.lower() == brand.lower()
-            ]
-        print("Selected Brand:", brand)
-        print("Rows Found:", len(filtered_df))
-    
-        sentiment_counts = filtered_df["Sentiment"].value_counts()
+    risk_counts = df[df["Sentiment"]=="Negative"]["Entity"].value_counts().head(5).to_dict()
 
-        result = {
-            "Positive": int(sentiment_counts.get("Positive", 0)),
-            "Neutral": int(sentiment_counts.get("Neutral", 0)),
-            "Negative": int(sentiment_counts.get("Negative", 0)),
-            "Irrelevant": int(sentiment_counts.get("Irrelevant", 0)),
-            "Total": int(len(filtered_df))
-        }
-
-        return jsonify(result)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({
+        "sentiment":sentiment_counts,
+        "risk":risk_counts
+    })
 
 
-# ================= RUN =================
 if __name__ == "__main__":
     app.run(debug=True)
