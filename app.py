@@ -115,11 +115,11 @@ with st.expander("📜 View Recent Scan History", expanded=False):
         # Color-code rows by sentiment
         def highlight_sentiment(row):
             if row['Sentiment'] == 'Negative':
-                return ['background-color: #ffe6e6'] * len(row)
+                return ['background-color: #ffe6e6'; colour:black] * len(row)
             elif row['Sentiment'] == 'Positive':
-                return ['background-color: #e6ffe6'] * len(row)
+                return ['background-color: #e6ffe6'; colour:black] * len(row)
             else:
-                return ['background-color: #f0f0ff'] * len(row)
+                return ['background-color: #f0f0ff'; colour:black] * len(row)
 
         st.dataframe(
             history_df.style.apply(highlight_sentiment, axis=1),
