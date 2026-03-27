@@ -117,7 +117,7 @@ with st.expander("📜 View Recent Scan History", expanded=False):
             if row['Sentiment'] == 'Negative':
                 return ['background-color: #ffe6e6'] * len(row)
             elif row['Sentiment'] == 'Positive':
-                return ['background-color: #e6ffe6'; colour:black] * len(row)
+                return ['background-color: #e6ffe6'] * len(row)
             else:
                 return ['background-color: #f0f0ff'; colour:black] * len(row)
 
