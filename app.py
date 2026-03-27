@@ -119,7 +119,7 @@ with st.expander("📜 View Recent Scan History", expanded=False):
             elif row['Sentiment'] == 'Positive':
                 return ['background-color: #e6ffe6'] * len(row)
             else:
-                return ['background-color: #f0f0ff'; colour:black] * len(row)
+                return ['background-color: #f0f0ff'] * len(row)
 
         st.dataframe(
             history_df.style.apply(highlight_sentiment, axis=1),
