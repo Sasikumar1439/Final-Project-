@@ -142,7 +142,7 @@ st.markdown("---")
 st.subheader("📈 Historical Brand Analytics")
 
 try:
-    df_hist = pd.read_csv(CSV_FILE)
+    df_hist = pd.read_csv("final_cleaned_social_media_data.csv")
 
     tab1, tab2, tab3 = st.tabs(["PR Risk Analysis", "Global Sentiment Distribution", "Brand Deep Dive"])
 
